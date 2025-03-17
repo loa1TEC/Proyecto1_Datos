@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 using System.Windows;
 using MQClient;
+
 
 namespace MQGUI
 {
@@ -15,18 +17,43 @@ namespace MQGUI
             client = new Client();
         }
 
-        private void Subscribe_Click(object sender, RoutedEventArgs e)
+        private async void Subscribe_Click(object sender, RoutedEventArgs e)
         {
             string topic = txtTopic.Text;
             if (!string.IsNullOrEmpty(topic))
             {
-                string response = client.SendMessage("SUBSCRIBE", topic);
-                lstMessages.Items.Add($"Suscrito a: {topic}");
-                lstMessages.Items.Add($"Respuesta del broker: {response}");
+                // Enviar la solicitud de suscripción al Broker
+                string response = await client.SendMessageAsync("SUBSCRIBE", topic);
+
+                // Mostrar la respuesta en la UI
+                MessageBox.Show(response); // Muestra la respuesta del Broker
+
+                lstMessages.Items.Add($"Te has suscrito a {topic}"); // Mostrar en la UI el mensaje de confirmación
+                Btndes.Visibility = Visibility.Visible; // Muestra el botón de desuscribirse
             }
             else
             {
-                MessageBox.Show("Ingrese un tema válido", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Por favor, ingresa un tema para suscribirte.");
+            }
+        }
+
+        private async void Unsubscribe_Click(object sender, RoutedEventArgs e)
+        {
+            string topic = txtTopic.Text;
+            if (!string.IsNullOrEmpty(topic))
+            {
+                // Enviar la solicitud de desuscripción al Broker
+                string response = await client.SendMessageAsync("UNSUBSCRIBE", topic);
+
+                // Mostrar la respuesta en la UI
+                MessageBox.Show(response);
+
+                lstMessages.Items.Add($"Te has desuscrito de {topic}"); // Mostrar en la UI el mensaje de desuscripción
+                Btndes.Visibility = Visibility.Hidden; // Ocultar el botón de desuscribirse
+            }
+            else
+            {
+                MessageBox.Show("Por favor, ingresa un tema para desuscribirte.");
             }
         }
 
@@ -37,7 +64,7 @@ namespace MQGUI
 
             if (!string.IsNullOrEmpty(topic) && !string.IsNullOrEmpty(message))
             {
-                string response = await Task.Run(() => client.SendMessage("PUBLISH", topic, message));
+                string response = await Task.Run(() => client.SendMessageAsync("PUBLISH", topic, message));
                 lstMessages.Items.Add($"Enviado: {message} en {topic}");
                 lstMessages.Items.Add($"Respuesta del broker: {response}");
             }
@@ -53,11 +80,13 @@ namespace MQGUI
 
             if (!string.IsNullOrEmpty(topic))
             {
-                string response = await Task.Run(() => client.SendMessage("RECEIVE", topic));
+                // Enviar la solicitud de recepción al Broker
+                string response = await client.SendMessageAsync("RECEIVE", topic);
 
+                // Mostrar la respuesta en la UI
                 Dispatcher.Invoke(() =>
                 {
-                    if (!string.IsNullOrEmpty(response))
+                    if (!string.IsNullOrEmpty(response) && response != "EMPTY")
                     {
                         lstMessages.Items.Add($"Mensaje recibido en {topic}: {response}");
                     }
@@ -72,9 +101,6 @@ namespace MQGUI
                 MessageBox.Show("Ingrese un tema para recibir mensajes", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
-
-
 
     }
 }
