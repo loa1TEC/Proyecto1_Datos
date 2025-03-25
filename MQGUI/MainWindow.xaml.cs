@@ -1,108 +1,95 @@
 ﻿using System;
-using System.Net.NetworkInformation;
-using System.Threading.Tasks;
 using System.Windows;
 using MQClient;
-
 
 namespace MQGUI
 {
     public partial class MainWindow : Window
     {
-        private Client client;
+        private Client _client;
+        private string _currentTopic = "";
 
         public MainWindow()
         {
             InitializeComponent();
-            client = new Client();
+            string appId = Guid.NewGuid().ToString();
+            _client = new Client(appId);
+            this.Closed += (s, e) => _client.Dispose();
         }
 
         private async void Subscribe_Click(object sender, RoutedEventArgs e)
         {
-            string topic = txtTopic.Text;
-            if (!string.IsNullOrEmpty(topic))
+            _currentTopic = txtTopic.Text;
+            if (!string.IsNullOrEmpty(_currentTopic))
             {
-                // Enviar la solicitud de suscripción al Broker
-                string response = await client.SendMessageAsync("SUBSCRIBE", topic);
+                lstMessages.Items.Add($"⌛ Suscribiendo a {_currentTopic}...");
+                bool success = await _client.Subscribe(_currentTopic);
 
-                // Mostrar la respuesta en la UI
-                MessageBox.Show(response); // Muestra la respuesta del Broker
-
-                lstMessages.Items.Add($"Te has suscrito a {topic}"); // Mostrar en la UI el mensaje de confirmación
-                Btndes.Visibility = Visibility.Visible; // Muestra el botón de desuscribirse
-            }
-            else
-            {
-                MessageBox.Show("Por favor, ingresa un tema para suscribirte.");
+                if (success)
+                {
+                    lstMessages.Items.Add($"✅ Suscrito a {_currentTopic}");
+                    btnSubscribe.Visibility = Visibility.Collapsed;
+                    btnUnsubscribe.Visibility = Visibility.Visible;
+                    UpdateStatus($"Conectado | Tema: {_currentTopic}");
+                }
+                else
+                {
+                    lstMessages.Items.Add("❌ Error al suscribirse");
+                }
             }
         }
 
         private async void Unsubscribe_Click(object sender, RoutedEventArgs e)
         {
-            string topic = txtTopic.Text;
-            if (!string.IsNullOrEmpty(topic))
+            if (!string.IsNullOrEmpty(_currentTopic))
             {
-                // Enviar la solicitud de desuscripción al Broker
-                string response = await client.SendMessageAsync("UNSUBSCRIBE", topic);
+                lstMessages.Items.Add($"⌛ Desuscribiendo de {_currentTopic}...");
+                bool success = await _client.Unsubscribe(_currentTopic);
 
-                // Mostrar la respuesta en la UI
-                MessageBox.Show(response);
-
-                lstMessages.Items.Add($"Te has desuscrito de {topic}"); // Mostrar en la UI el mensaje de desuscripción
-                Btndes.Visibility = Visibility.Hidden; // Ocultar el botón de desuscribirse
-            }
-            else
-            {
-                MessageBox.Show("Por favor, ingresa un tema para desuscribirte.");
+                if (success)
+                {
+                    lstMessages.Items.Add($"✅ Desuscrito de {_currentTopic}");
+                    btnUnsubscribe.Visibility = Visibility.Collapsed;
+                    btnSubscribe.Visibility = Visibility.Visible;
+                    UpdateStatus("Conectado | Sin tema");
+                    _currentTopic = "";
+                }
             }
         }
 
         private async void SendMessage_Click(object sender, RoutedEventArgs e)
         {
-            string topic = txtTopic.Text;
-            string message = txtMessage.Text;
+            if (!string.IsNullOrEmpty(_currentTopic))
+            {
+                string message = txtMessage.Text;
+                lstMessages.Items.Add($"✉️ Enviando a {_currentTopic}: {message}");
 
-            if (!string.IsNullOrEmpty(topic) && !string.IsNullOrEmpty(message))
-            {
-                string response = await Task.Run(() => client.SendMessageAsync("PUBLISH", topic, message));
-                lstMessages.Items.Add($"Enviado: {message} en {topic}");
-                lstMessages.Items.Add($"Respuesta del broker: {response}");
-            }
-            else
-            {
-                MessageBox.Show("Ingrese un tema y un mensaje", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                bool success = await _client.Publish(_currentTopic, message);
+                if (success)
+                {
+                    lstMessages.Items.Add("✔️ Mensaje enviado");
+                    txtMessage.Clear();
+                }
             }
         }
 
         private async void ReceiveMessage_Click(object sender, RoutedEventArgs e)
         {
-            string topic = txtTopic.Text;
-
-            if (!string.IsNullOrEmpty(topic))
+            if (!string.IsNullOrEmpty(_currentTopic))
             {
-                // Enviar la solicitud de recepción al Broker
-                string response = await client.SendMessageAsync("RECEIVE", topic);
+                lstMessages.Items.Add($"🔍 Buscando mensajes en {_currentTopic}...");
+                string message = await _client.Receive(_currentTopic);
 
-                // Mostrar la respuesta en la UI
-                Dispatcher.Invoke(() =>
-                {
-                    if (!string.IsNullOrEmpty(response) && response != "EMPTY")
-                    {
-                        lstMessages.Items.Add($"Mensaje recibido en {topic}: {response}");
-                    }
-                    else
-                    {
-                        lstMessages.Items.Add($"No hay mensajes nuevos en {topic}.");
-                    }
-                });
-            }
-            else
-            {
-                MessageBox.Show("Ingrese un tema para recibir mensajes", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                if (message != "EMPTY" && !message.StartsWith("ERROR"))
+                    lstMessages.Items.Add($"📩 Recibido: {message}");
+                else
+                    lstMessages.Items.Add("📭 No hay mensajes nuevos");
             }
         }
 
+        private void UpdateStatus(string status)
+        {
+            txtStatus.Text = $"Estado: {status}";
+        }
     }
 }
-
-
