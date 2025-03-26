@@ -10,10 +10,9 @@ class Program
 {
     private static CustomDictionary<string, List<TcpClient>> subscribers = new CustomDictionary<string, List<TcpClient>>();
     private static CustomDictionary<TcpClient, CustomDictionary<string, Queue>> clientMessageQueues = new CustomDictionary<TcpClient, CustomDictionary<string, Queue>>();
-
     static void Main()
     {
-        TcpListener server = new TcpListener(IPAddress.Any, 5000);
+        TcpListener server = new TcpListener(IPAddress.Parse("0.0.0.0"), 5000);
         server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         server.Start();
         Console.WriteLine("MQBroker esperando conexiones en el puerto 5000...");
