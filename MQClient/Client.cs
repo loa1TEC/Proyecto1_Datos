@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,10 +13,10 @@ namespace MQClient
         private readonly string _serverIp;
         private readonly int _serverPort;
 
-        public Client(string appId, string ip = "127.0.0.1", int port = 5000)
+        public Client(string appId, string serverIp = "172.18.237.5", int port = 5000)
         {
             _appId = appId;
-            _serverIp = ip;
+            _serverIp = serverIp;
             _serverPort = port;
             InitializeConnection();
         }
@@ -38,7 +37,7 @@ namespace MQClient
             }
         }
 
-        public async Task<string> SendMessageAsync(string command, string topic, string message = "")
+        private async Task<string> SendMessageAsync(string command, Topic topic, string message = "")
         {
             try
             {
@@ -59,32 +58,33 @@ namespace MQClient
             catch (Exception ex)
             {
                 Console.WriteLine($"🔴 Error en SendMessageAsync: {ex.Message}");
-                return $"ERROR: {ex.Message}";
+                throw;
             }
         }
 
-        public async Task<bool> Subscribe(string topic)
+        public async Task<bool> Subscribe(Topic topic)
         {
             string response = await SendMessageAsync("SUBSCRIBE", topic);
             return response.StartsWith("SUSCRITO_A");
         }
 
-        public async Task<bool> Unsubscribe(string topic)
+        public async Task<bool> Unsubscribe(Topic topic)
         {
             string response = await SendMessageAsync("UNSUBSCRIBE", topic);
             return response.StartsWith("DESUSCRITO_DE");
         }
 
-        public async Task<bool> Publish(string topic, string message)
+        public async Task<bool> Publish(Message message, Topic topic)
         {
-            string response = await SendMessageAsync("PUBLISH", topic, message);
-            return response.Contains("publicado");
+            string response = await SendMessageAsync("PUBLISH", topic, message.ToString());
+            return response.Contains("PUBLICADO_EN");
         }
 
-        public async Task<string> Receive(string topic)
+        public async Task<Message> Receive(Topic topic)
         {
             string response = await SendMessageAsync("RECEIVE", topic);
-            return response.StartsWith("ERROR") ? response : response.Split('|').Last();
+            if (response == "EMPTY") return null;
+            return new Message(response);
         }
 
         public void Dispose()

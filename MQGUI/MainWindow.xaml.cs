@@ -8,7 +8,7 @@ namespace MQGUI
     public partial class MainWindow : Window
     {
         private Client _client;
-        private HashSet<string> _subscribedTopics = new HashSet<string>(); // Lista de temas suscritos
+        private HashSet<Topic> _subscribedTopics = new HashSet<Topic>(); // Lista de temas suscritos
 
         public MainWindow()
         {
@@ -20,32 +20,38 @@ namespace MQGUI
 
         private async void Subscribe_Click(object sender, RoutedEventArgs e)
         {
-            string topic = txtTopic.Text.Trim();
-            if (!string.IsNullOrEmpty(topic) && !_subscribedTopics.Contains(topic))
+            string topicName = txtTopic.Text.Trim();
+            if (!string.IsNullOrEmpty(topicName))
             {
-                lstMessages.Items.Add($"⌛ Suscribiendo a {topic}...");
-                bool success = await _client.Subscribe(topic);
+                Topic topic = new Topic(topicName);
 
-                if (success)
+                if (!_subscribedTopics.Contains(topic))
                 {
-                    _subscribedTopics.Add(topic);
-                    lstMessages.Items.Add($"✅ Suscrito a {topic}");
-                    lstTopics.Items.Add(topic); // Agregar tema a la lista de suscritos
-                    if (lstTopics.SelectedItem == null)
-                        lstTopics.SelectedItem = topic; // Seleccionar automáticamente el primer tema
-                    UpdateStatus();
-                }
-                else
-                {
-                    lstMessages.Items.Add("❌ Error al suscribirse");
+                    lstMessages.Items.Add($"⌛ Suscribiendo a {topic}...");
+                    bool success = await _client.Subscribe(topic);
+
+                    if (success)
+                    {
+                        _subscribedTopics.Add(topic);
+                        lstMessages.Items.Add($"✅ Suscrito a {topic}");
+                        lstTopics.Items.Add(topic.Name); // Agregar nombre del tema a la lista de suscritos
+                        if (lstTopics.SelectedItem == null)
+                            lstTopics.SelectedItem = topic.Name; // Seleccionar automáticamente el primer tema
+                        UpdateStatus();
+                    }
+                    else
+                    {
+                        lstMessages.Items.Add("❌ Error al suscribirse");
+                    }
                 }
             }
         }
 
         private async void Unsubscribe_Click(object sender, RoutedEventArgs e)
         {
-            if (lstTopics.SelectedItem is string topic)
+            if (lstTopics.SelectedItem is string topicName)
             {
+                Topic topic = new Topic(topicName);
                 lstMessages.Items.Add($"⌛ Desuscribiendo de {topic}...");
                 bool success = await _client.Unsubscribe(topic);
 
@@ -53,7 +59,7 @@ namespace MQGUI
                 {
                     _subscribedTopics.Remove(topic);
                     lstMessages.Items.Add($"✅ Desuscrito de {topic}");
-                    lstTopics.Items.Remove(topic); // Quitar tema de la lista
+                    lstTopics.Items.Remove(topic.Name); // Quitar tema de la lista
 
                     // Si hay más temas en la lista, seleccionar otro automáticamente
                     if (lstTopics.Items.Count > 0)
@@ -72,15 +78,17 @@ namespace MQGUI
 
         private async void SendMessage_Click(object sender, RoutedEventArgs e)
         {
-            string topic = GetTopicForMessage();
+            Topic topic = GetTopicForMessage();
             if (topic != null)
             {
-                string message = txtMessage.Text.Trim();
-                if (!string.IsNullOrEmpty(message))
+                string messageText = txtMessage.Text.Trim();
+                if (!string.IsNullOrEmpty(messageText))
                 {
+                    Message message = new Message(messageText);
+
                     lstMessages.Items.Add($"✉️ Enviando a {topic}: {message}");
 
-                    bool success = await _client.Publish(topic, message);
+                    bool success = await _client.Publish(message, topic);
                     if (success)
                     {
                         lstMessages.Items.Add("✔️ Mensaje enviado");
@@ -96,39 +104,39 @@ namespace MQGUI
 
         private async void ReceiveMessage_Click(object sender, RoutedEventArgs e)
         {
-            string topic = GetSelectedTopic();
+            Topic topic = GetSelectedTopic();
             if (topic != null)
             {
                 lstMessages.Items.Add($"🔍 Buscando mensajes en {topic}...");
-                string message = await _client.Receive(topic);
+                Message receivedMessage = await _client.Receive(topic);
 
-                if (message != "EMPTY" && !message.StartsWith("ERROR"))
-                    lstMessages.Items.Add($"📩 Recibido en {topic}: {message}");
+                if (receivedMessage != null)
+                    lstMessages.Items.Add($"📩 Recibido en {topic}: {receivedMessage}");
                 else
                     lstMessages.Items.Add($"📭 No hay mensajes nuevos en {topic}");
             }
         }
 
-        private string GetTopicForMessage()
+        private Topic GetTopicForMessage()
         {
             // Si el usuario ha escrito un tema en txtTopic, usarlo aunque haya selección en la lista
             string typedTopic = txtTopic.Text.Trim();
             if (!string.IsNullOrEmpty(typedTopic))
-                return typedTopic;
+                return new Topic(typedTopic);
 
             // Si no hay texto en txtTopic, usar el tema seleccionado en la lista
             if (lstTopics.SelectedItem is string selectedTopic)
-                return selectedTopic;
+                return new Topic(selectedTopic);
 
             // Si no hay nada, mostrar advertencia
             MessageBox.Show("Escribe un tema o selecciona uno antes de enviar un mensaje.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
 
-        private string GetSelectedTopic()
+        private Topic GetSelectedTopic()
         {
-            if (lstTopics.SelectedItem is string topic)
-                return topic;
+            if (lstTopics.SelectedItem is string topicName)
+                return new Topic(topicName);
 
             MessageBox.Show("Selecciona un tema antes de recibir mensajes.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
