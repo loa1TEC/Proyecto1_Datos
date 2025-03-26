@@ -66,13 +66,13 @@ namespace MQClient
         public async Task<bool> Subscribe(string topic)
         {
             string response = await SendMessageAsync("SUBSCRIBE", topic);
-            return response.Contains("suscrito");
+            return response.StartsWith("SUSCRITO_A");
         }
 
         public async Task<bool> Unsubscribe(string topic)
         {
             string response = await SendMessageAsync("UNSUBSCRIBE", topic);
-            return response.Contains("desuscrito");
+            return response.StartsWith("DESUSCRITO_DE");
         }
 
         public async Task<bool> Publish(string topic, string message)

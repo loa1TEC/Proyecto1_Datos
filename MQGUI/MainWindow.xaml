@@ -1,5 +1,4 @@
-﻿
-<Window x:Class="MQGUI.MainWindow"
+﻿<Window x:Class="MQGUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Message Queue Client" Height="450" Width="400">
@@ -13,26 +12,32 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Sección de tema -->
+        <!-- Sección de suscripción a temas -->
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <TextBox x:Name="txtTopic" Width="200" Margin="0,0,5,0"/>
             <Button x:Name="btnSubscribe" Content="Suscribirse" Click="Subscribe_Click"/>
-            <Button x:Name="btnUnsubscribe" Content="Desuscribirse" Click="Unsubscribe_Click" Visibility="Collapsed"/>
+        </StackPanel>
+
+        <!-- Lista de temas suscritos -->
+        <StackPanel Grid.Row="1" Margin="0,10">
+            <TextBlock Text="Temas suscritos:" FontWeight="Bold"/>
+            <ListBox x:Name="lstTopics" Height="100"/>
+            <Button x:Name="btnUnsubscribe" Content="Desuscribirse" Click="Unsubscribe_Click" Margin="0,5,0,0"/>
         </StackPanel>
 
         <!-- Área de mensaje -->
-        <TextBox x:Name="txtMessage" Grid.Row="1" Margin="0,10" Height="60" AcceptsReturn="True"/>
+        <TextBox x:Name="txtMessage" Grid.Row="2" Margin="0,10" Height="60" AcceptsReturn="True"/>
 
         <!-- Botones de acción -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Content="Enviar Mensaje" Click="SendMessage_Click" Width="120" Margin="0,0,10,0"/>
             <Button Content="Recibir Mensajes" Click="ReceiveMessage_Click" Width="120"/>
         </StackPanel>
 
         <!-- Lista de mensajes -->
-        <ListBox x:Name="lstMessages" Grid.Row="3" Margin="0,10"/>
+        <ListBox x:Name="lstMessages" Grid.Row="4" Margin="0,10"/>
 
         <!-- Barra de estado -->
-        <TextBlock x:Name="txtStatus" Grid.Row="4" Text="Estado: Desconectado" HorizontalAlignment="Right"/>
+        <TextBlock x:Name="txtStatus" Grid.Row="5" Text="Estado: Desconectado" HorizontalAlignment="Right"/>
     </Grid>
 </Window>
