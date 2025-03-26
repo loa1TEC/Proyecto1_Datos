@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -9,8 +8,8 @@ using MQClient;
 
 class Program
 {
-    private static Dictionary<string, List<TcpClient>> subscribers = new Dictionary<string, List<TcpClient>>();
-    private static Dictionary<TcpClient, Dictionary<string, Queue>> clientMessageQueues = new Dictionary<TcpClient, Dictionary<string, Queue>>();
+    private static CustomDictionary<string, List<TcpClient>> subscribers = new CustomDictionary<string, List<TcpClient>>();
+    private static CustomDictionary<TcpClient, CustomDictionary<string, Queue>> clientMessageQueues = new CustomDictionary<TcpClient, CustomDictionary<string, Queue>>();
 
     static void Main()
     {
@@ -91,32 +90,32 @@ class Program
     private static void Subscribe(TcpClient client, string appId, string topic)
     {
         if (!subscribers.ContainsKey(topic))
-            subscribers[topic] = new List<TcpClient>();
+            subscribers.Add(topic, new List<TcpClient>());
 
-        if (!subscribers[topic].Contains(client))
+        if (subscribers.TryGetValue(topic, out var clients) && !clients.Contains(client))
         {
-            subscribers[topic].Add(client);
+            clients.Add(client);
             Console.WriteLine($"➕ Cliente {appId} suscrito a {topic}");
         }
 
         if (!clientMessageQueues.ContainsKey(client))
-            clientMessageQueues[client] = new Dictionary<string, Queue>();
+            clientMessageQueues.Add(client, new CustomDictionary<string, Queue>());
 
-        if (!clientMessageQueues[client].ContainsKey(topic))
-            clientMessageQueues[client][topic] = new Queue();
+        if (clientMessageQueues.TryGetValue(client, out var topics) && !topics.ContainsKey(topic))
+            topics.Add(topic, new Queue());
     }
 
     private static void Unsubscribe(TcpClient client, string appId, string topic)
     {
-        if (subscribers.ContainsKey(topic) && subscribers[topic].Remove(client))
+        if (subscribers.TryGetValue(topic, out var clients) && clients.Remove(client))
         {
             Console.WriteLine($"➖ Cliente {appId} desuscrito de {topic}");
-            if (subscribers[topic].Count == 0)
+            if (clients.Count == 0)
                 subscribers.Remove(topic);
         }
 
-        if (clientMessageQueues.TryGetValue(client, out var topics) && topics.Remove(topic))
-            Console.WriteLine($"🗑️ Cola eliminada para {topic}");
+        if (clientMessageQueues.TryGetValue(client, out var topics))
+            topics.Remove(topic);
     }
 
     private static void Publish(string topic, string message)
