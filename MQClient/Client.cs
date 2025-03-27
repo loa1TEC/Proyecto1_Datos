@@ -13,7 +13,7 @@ namespace MQClient
         private readonly string _serverIp;
         private readonly int _serverPort;
 
-        public Client(string appId, string serverIp = "172.18.237.5", int port = 5000)
+        public Client(string appId, string serverIp = "172.18.16.204", int port = 5000)
         {
             _appId = appId;
             _serverIp = serverIp;
