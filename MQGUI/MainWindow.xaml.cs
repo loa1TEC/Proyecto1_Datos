@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Windows;
 using MQClient;
 
@@ -8,16 +9,59 @@ namespace MQGUI
     public partial class MainWindow : Window
     {
         private Client _client;
-        private HashSet<Topic> _subscribedTopics = new HashSet<Topic>(); // Lista de temas suscritos
+        private HashSet<Topic> _subscribedTopics = new HashSet<Topic>();
 
         public MainWindow()
         {
             InitializeComponent();
-            string appId = Guid.NewGuid().ToString();
-            _client = new Client(appId);
-            this.Closed += (s, e) => _client.Dispose();
+            this.Closed += (s, e) => _client?.Dispose(); // El cliente ahora puede ser null
+            btnSubscribe.IsEnabled = false;
+            btnUnsubscribe.IsEnabled = false;
+            btnSendMessage.IsEnabled = false;
+            btnReceiveMessage.IsEnabled = false;
         }
 
+        private void Connect_Click(object sender, RoutedEventArgs e)
+        {
+            string ip = txtBrokerIP.Text.Trim();
+            string portText = txtBrokerPort.Text.Trim();
+
+            // Validación de IP
+            if (!IPAddress.TryParse(ip, out _))
+            {
+                lstMessages.Items.Add("❌ IP inválida.");
+                return;
+            }
+
+            // Validación de puerto
+            if (!int.TryParse(portText, out int port) || port != 5000)
+            {
+                lstMessages.Items.Add("❌ El puerto debe ser 5000.");
+                return;
+            }
+
+            try
+            {
+                string appId = Guid.NewGuid().ToString();
+                _client?.Dispose(); // Cierra cualquier instancia anterior
+                _client = new Client(appId, ip, port);
+
+                txtAppID.Text = appId;
+                txtStatus.Text = $"Estado: Conectado a {ip}:{port}";
+                lstMessages.Items.Add($"✅ Conectado con App ID: {appId}");
+                btnSubscribe.IsEnabled = true;
+                btnUnsubscribe.IsEnabled = true;
+                btnSendMessage.IsEnabled = true;
+                btnReceiveMessage.IsEnabled = true;
+
+                // Desactivar botón de conexión para evitar reconectar
+                btnConnect.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                lstMessages.Items.Add($"❌ Error al conectar: {ex.Message}");
+            }
+        }
         private async void Subscribe_Click(object sender, RoutedEventArgs e)
         {
             string topicName = txtTopic.Text.Trim();
