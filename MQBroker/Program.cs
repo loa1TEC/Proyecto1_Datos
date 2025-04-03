@@ -10,41 +10,66 @@ class Program
 {
     private static CustomDictionary<string, List<TcpClient>> subscribers = new CustomDictionary<string, List<TcpClient>>();
     private static CustomDictionary<TcpClient, CustomDictionary<string, Queue>> clientMessageQueues = new CustomDictionary<TcpClient, CustomDictionary<string, Queue>>();
+
+    private static TcpListener? server;
+
+    private static bool isRunning = true;
+
     static void Main()
     {
-        TcpListener server = new TcpListener(IPAddress.Parse("0.0.0.0"), 5000);
+        StartServer();
+        Console.CancelKeyPress += (sender, e) =>
+        {
+            Console.WriteLine("\n🔴 Cerrando el servidor de manera segura...");
+            isRunning = false;
+            server?.Stop();
+            Environment.Exit(0);
+        };
+
+        while (isRunning)
+        {
+            try
+            {
+                var client = server?.AcceptTcpClient();
+                if (client != null)
+                {
+                    Console.WriteLine($"🟢 Nueva conexión: {client.Client.RemoteEndPoint}");
+                    Task.Run(() => HandleClient(client));
+                }
+            }
+            catch (SocketException)
+            {
+                if (!isRunning) break;
+            }
+        }
+    }
+
+    private static void StartServer()
+    {
+        server = new TcpListener(IPAddress.Any, 5000);
         server.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         server.Start();
-        Console.WriteLine("MQBroker esperando conexiones en el puerto 5000...");
-
-        while (true)
-        {
-            TcpClient client = server.AcceptTcpClient();
-            Console.WriteLine($"🟢 Nueva conexión: {client.Client.RemoteEndPoint}");
-            Task.Run(() => HandleClient(client));
-        }
+        Console.WriteLine("🚀 MQBroker iniciado en el puerto 5000...");
     }
 
     private static async void HandleClient(TcpClient client)
     {
         try
         {
-            using (NetworkStream stream = client.GetStream())
+            NetworkStream stream = client.GetStream();
+            byte[] buffer = new byte[1024];
+
+            while (client.Connected)
             {
-                byte[] buffer = new byte[1024];
+                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                if (bytesRead == 0) break;
 
-                while (client.Connected)
-                {
-                    int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break;
+                string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                Console.WriteLine($"📩 Mensaje recibido: {message}");
 
-                    string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    Console.WriteLine($"📩 Mensaje recibido: {message}");
-
-                    string response = ProcessMessage(client, message);
-                    byte[] responseData = Encoding.UTF8.GetBytes(response);
-                    await stream.WriteAsync(responseData, 0, responseData.Length);
-                }
+                string response = ProcessMessage(client, message);
+                byte[] responseData = Encoding.UTF8.GetBytes(response);
+                await stream.WriteAsync(responseData, 0, responseData.Length);
             }
         }
         catch (Exception ex)
@@ -53,8 +78,20 @@ class Program
         }
         finally
         {
-            client.Close();
+            DisconnectClient(client);
+        }
+    }
+
+    private static void DisconnectClient(TcpClient client)
+    {
+        if (client.Connected)
+        {
             Console.WriteLine($"⚫ Conexión cerrada: {client.Client.RemoteEndPoint}");
+            client.Close();
+        }
+        else
+        {
+            Console.WriteLine("⚠️ Intento de cerrar un cliente ya desconectado.");
         }
     }
 
@@ -77,7 +114,7 @@ class Program
                 return $"DESUSCRITO_DE|{topic}";
             case "PUBLISH":
                 if (parts.Length < 4) return "ERROR: Falta mensaje";
-                Publish(topic, parts[3]);
+                Publish(topic, parts[3], client); // ← Pasamos 'client' para excluirlo
                 return $"PUBLICADO_EN|{topic}";
             case "RECEIVE":
                 return ReceiveMessage(client, appId, topic);
@@ -117,12 +154,14 @@ class Program
             topics.Remove(topic);
     }
 
-    private static void Publish(string topic, string message)
+    private static void Publish(string topic, string message, TcpClient sender)
     {
         if (subscribers.TryGetValue(topic, out var clients))
         {
             foreach (var client in clients)
             {
+                if (client == sender) continue; // Evita que el emisor reciba su propio mensaje
+
                 if (clientMessageQueues.TryGetValue(client, out var topics) && topics.TryGetValue(topic, out var queue))
                 {
                     queue.Enqueue(new Nodo(message));

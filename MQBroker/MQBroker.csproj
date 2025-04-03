@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MQClient\MQClient.csproj" />
+    <ProjectReference Include="..\MQGUI\MQGUI.csproj" />
   </ItemGroup>
 
 </Project>
