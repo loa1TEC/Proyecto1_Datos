@@ -6,34 +6,51 @@ using MQClient;
 
 namespace MQGUI
 {
+    /// <summary>
+    /// Ventana principal de la aplicación MQGUI.
+    /// Permite conectar a un broker, suscribirse a tópicos, publicar y recibir mensajes.
+    /// </summary>
     public partial class MainWindow : Window
     {
+        /// <summary>
+        /// Cliente que se conecta al servidor MQ.
+        /// </summary>
         private Client _client;
+
+        /// <summary>
+        /// Conjunto de tópicos a los que el cliente está actualmente suscrito.
+        /// </summary>
         private HashSet<Topic> _subscribedTopics = new HashSet<Topic>();
 
+        /// <summary>
+        /// Inicializa la ventana principal y los controles de la interfaz.
+        /// </summary>
         public MainWindow()
         {
             InitializeComponent();
-            this.Closed += (s, e) => _client?.Dispose(); // El cliente ahora puede ser null
+            this.Closed += (s, e) => _client?.Dispose();
+
             btnSubscribe.IsEnabled = false;
             btnUnsubscribe.IsEnabled = false;
             btnSendMessage.IsEnabled = false;
             btnReceiveMessage.IsEnabled = false;
         }
 
+        /// <summary>
+        /// Evento que se ejecuta al hacer clic en el botón "Conectar".
+        /// Realiza validaciones y establece la conexión con el broker.
+        /// </summary>
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
             string ip = txtBrokerIP.Text.Trim();
             string portText = txtBrokerPort.Text.Trim();
 
-            // Validación de IP
             if (!IPAddress.TryParse(ip, out _))
             {
                 lstMessages.Items.Add("❌ IP inválida.");
                 return;
             }
 
-            // Validación de puerto
             if (!int.TryParse(portText, out int port) || port != 5000)
             {
                 lstMessages.Items.Add("❌ El puerto debe ser 5000.");
@@ -43,18 +60,17 @@ namespace MQGUI
             try
             {
                 string appId = Guid.NewGuid().ToString();
-                _client?.Dispose(); // Cierra cualquier instancia anterior
+                _client?.Dispose();
                 _client = new Client(appId, ip, port);
 
                 txtAppID.Text = appId;
                 txtStatus.Text = $"Estado: Conectado a {ip}:{port}";
                 lstMessages.Items.Add($"✅ Conectado con App ID: {appId}");
+
                 btnSubscribe.IsEnabled = true;
                 btnUnsubscribe.IsEnabled = true;
                 btnSendMessage.IsEnabled = true;
                 btnReceiveMessage.IsEnabled = true;
-
-                // Desactivar botón de conexión para evitar reconectar
                 btnConnect.IsEnabled = false;
             }
             catch (Exception ex)
@@ -62,6 +78,11 @@ namespace MQGUI
                 lstMessages.Items.Add($"❌ Error al conectar: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Evento que se ejecuta al hacer clic en el botón "Suscribirse".
+        /// Suscribe al cliente a un tópico especificado.
+        /// </summary>
         private async void Subscribe_Click(object sender, RoutedEventArgs e)
         {
             string topicName = txtTopic.Text.Trim();
@@ -78,9 +99,11 @@ namespace MQGUI
                     {
                         _subscribedTopics.Add(topic);
                         lstMessages.Items.Add($"✅ Suscrito a {topic}");
-                        lstTopics.Items.Add(topic.Name); // Agregar nombre del tema a la lista de suscritos
+                        lstTopics.Items.Add(topic.Name);
+
                         if (lstTopics.SelectedItem == null)
-                            lstTopics.SelectedItem = topic.Name; // Seleccionar automáticamente el primer tema
+                            lstTopics.SelectedItem = topic.Name;
+
                         UpdateStatus();
                     }
                     else
@@ -91,6 +114,10 @@ namespace MQGUI
             }
         }
 
+        /// <summary>
+        /// Evento que se ejecuta al hacer clic en "Desuscribirse".
+        /// Elimina la suscripción del cliente al tópico seleccionado.
+        /// </summary>
         private async void Unsubscribe_Click(object sender, RoutedEventArgs e)
         {
             if (lstTopics.SelectedItem is string topicName)
@@ -103,9 +130,8 @@ namespace MQGUI
                 {
                     _subscribedTopics.Remove(topic);
                     lstMessages.Items.Add($"✅ Desuscrito de {topic}");
-                    lstTopics.Items.Remove(topic.Name); // Quitar tema de la lista
+                    lstTopics.Items.Remove(topic.Name);
 
-                    // Si hay más temas en la lista, seleccionar otro automáticamente
                     if (lstTopics.Items.Count > 0)
                         lstTopics.SelectedIndex = 0;
                     else
@@ -120,6 +146,10 @@ namespace MQGUI
             }
         }
 
+        /// <summary>
+        /// Evento que se ejecuta al hacer clic en "Enviar".
+        /// Publica un mensaje en el tópico indicado.
+        /// </summary>
         private async void SendMessage_Click(object sender, RoutedEventArgs e)
         {
             Topic topic = GetTopicForMessage();
@@ -146,6 +176,10 @@ namespace MQGUI
             }
         }
 
+        /// <summary>
+        /// Evento que se ejecuta al hacer clic en "Recibir".
+        /// Solicita un mensaje del tópico seleccionado.
+        /// </summary>
         private async void ReceiveMessage_Click(object sender, RoutedEventArgs e)
         {
             Topic topic = GetSelectedTopic();
@@ -161,22 +195,26 @@ namespace MQGUI
             }
         }
 
+        /// <summary>
+        /// Determina el tópico para publicar el mensaje.
+        /// Prioriza el texto ingresado si existe, o usa el tópico seleccionado.
+        /// </summary>
         private Topic GetTopicForMessage()
         {
-            // Si el usuario ha escrito un tema en txtTopic, usarlo aunque haya selección en la lista
             string typedTopic = txtTopic.Text.Trim();
             if (!string.IsNullOrEmpty(typedTopic))
                 return new Topic(typedTopic);
 
-            // Si no hay texto en txtTopic, usar el tema seleccionado en la lista
             if (lstTopics.SelectedItem is string selectedTopic)
                 return new Topic(selectedTopic);
 
-            // Si no hay nada, mostrar advertencia
             MessageBox.Show("Escribe un tema o selecciona uno antes de enviar un mensaje.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
 
+        /// <summary>
+        /// Obtiene el tópico actualmente seleccionado en la lista.
+        /// </summary>
         private Topic GetSelectedTopic()
         {
             if (lstTopics.SelectedItem is string topicName)
@@ -186,6 +224,9 @@ namespace MQGUI
             return null;
         }
 
+        /// <summary>
+        /// Actualiza el estado mostrado en la interfaz indicando los tópicos suscritos.
+        /// </summary>
         private void UpdateStatus()
         {
             txtStatus.Text = _subscribedTopics.Count > 0
