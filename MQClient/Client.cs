@@ -23,7 +23,7 @@ namespace MQClient
         /// <param name="appId">ID único de la aplicación cliente.</param>
         /// <param name="serverIp">Dirección IP del servidor.</param>
         /// <param name="port">Puerto de conexión al servidor.</param>
-        public Client(string appId, string serverIp = "172.18.176.246", int port = 5000)
+        public Client(string appId, string serverIp, int port = 5000)
         {
             _appId = appId;
             _serverIp = serverIp;

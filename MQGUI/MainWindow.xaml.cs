@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading.Tasks;
 using System.Windows;
 using MQClient;
 
@@ -40,25 +41,45 @@ namespace MQGUI
         /// Evento que se ejecuta al hacer clic en el botón "Conectar".
         /// Realiza validaciones y establece la conexión con el broker.
         /// </summary>
-        private void Connect_Click(object sender, RoutedEventArgs e)
+        private async void Connect_Click(object sender, RoutedEventArgs e)
         {
             string ip = txtBrokerIP.Text.Trim();
             string portText = txtBrokerPort.Text.Trim();
 
+            // Validar IP
             if (!IPAddress.TryParse(ip, out _))
             {
                 lstMessages.Items.Add("❌ IP inválida.");
                 return;
             }
 
+            // Validar puerto
             if (!int.TryParse(portText, out int port) || port != 5000)
             {
                 lstMessages.Items.Add("❌ El puerto debe ser 5000.");
                 return;
             }
 
+            lstMessages.Items.Add("🔌 Intentando conectar al servidor...");
+
             try
             {
+                // Intentar conectar con timeout antes de crear el cliente
+                using (var testClient = new System.Net.Sockets.TcpClient())
+                {
+                    var connectTask = testClient.ConnectAsync(ip, port);
+                    var timeoutTask = Task.Delay(3000); // 3 segundos máximo
+
+                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+                    if (completedTask == timeoutTask || !testClient.Connected)
+                    {
+                        lstMessages.Items.Add("❌ No se pudo conectar al servidor (timeout o sin respuesta).");
+                        MessageBox.Show("No se pudo conectar al servidor. Revisa la IP o asegúrate de que el broker esté activo.", "Error de conexión", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                }
+
+                // Si pasó la prueba, ahora sí crear el cliente real
                 string appId = Guid.NewGuid().ToString();
                 _client?.Dispose();
                 _client = new Client(appId, ip, port);
@@ -67,6 +88,7 @@ namespace MQGUI
                 txtStatus.Text = $"Estado: Conectado a {ip}:{port}";
                 lstMessages.Items.Add($"✅ Conectado con App ID: {appId}");
 
+                // Habilitar botones
                 btnSubscribe.IsEnabled = true;
                 btnUnsubscribe.IsEnabled = true;
                 btnSendMessage.IsEnabled = true;
@@ -76,8 +98,10 @@ namespace MQGUI
             catch (Exception ex)
             {
                 lstMessages.Items.Add($"❌ Error al conectar: {ex.Message}");
+                MessageBox.Show("Conexión fallida.\n" + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         /// <summary>
         /// Evento que se ejecuta al hacer clic en el botón "Suscribirse".
