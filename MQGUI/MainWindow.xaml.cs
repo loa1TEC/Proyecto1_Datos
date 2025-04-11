@@ -64,25 +64,14 @@ namespace MQGUI
 
             try
             {
-                // Intentar conectar con timeout antes de crear el cliente
-                using (var testClient = new System.Net.Sockets.TcpClient())
-                {
-                    var connectTask = testClient.ConnectAsync(ip, port);
-                    var timeoutTask = Task.Delay(3000); // 3 segundos máximo
-
-                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-                    if (completedTask == timeoutTask || !testClient.Connected)
-                    {
-                        lstMessages.Items.Add("❌ No se pudo conectar al servidor (timeout o sin respuesta).");
-                        MessageBox.Show("No se pudo conectar al servidor. Revisa la IP o asegúrate de que el broker esté activo.", "Error de conexión", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        return;
-                    }
-                }
-
-                // Si pasó la prueba, ahora sí crear el cliente real
                 string appId = Guid.NewGuid().ToString();
                 _client?.Dispose();
-                _client = new Client(appId, ip, port);
+
+                // Use Task.Run to ensure asynchronous execution
+                await Task.Run(() =>
+                {
+                    _client = new Client(appId, ip, port);
+                });
 
                 txtAppID.Text = appId;
                 txtStatus.Text = $"Estado: Conectado a {ip}:{port}";

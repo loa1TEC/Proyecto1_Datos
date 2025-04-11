@@ -27,19 +27,6 @@ namespace MQClient
         }
 
         /// <summary>
-        /// Serializa el mensaje a un arreglo de bytes utilizando UTF-8.
-        /// </summary>
-        /// <returns>Mensaje serializado como bytes.</returns>
-        public byte[] Serialize() => Encoding.UTF8.GetBytes(Content);
-
-        /// <summary>
-        /// Deserializa un arreglo de bytes en un objeto Message.
-        /// </summary>
-        /// <param name="data">Bytes que representan un mensaje en UTF-8.</param>
-        /// <returns>Instancia de <see cref="Message"/>.</returns>
-        public static Message Deserialize(byte[] data) => new Message(Encoding.UTF8.GetString(data));
-
-        /// <summary>
         /// Devuelve el contenido del mensaje como string.
         /// </summary>
         /// <returns>Contenido del mensaje.</returns>

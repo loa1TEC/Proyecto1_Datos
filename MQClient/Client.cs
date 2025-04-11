@@ -51,7 +51,8 @@ namespace MQClient
         }
 
         /// <summary>
-        /// Envía un mensaje formateado al servidor y espera una respuesta.
+        /// Envía un mensaje utilizando el nuevo protocolo: cabecera de 4 bytes + mensaje.
+        /// Espera la respuesta del servidor formateada de la misma manera.
         /// </summary>
         /// <param name="command">Comando a ejecutar (SUBSCRIBE, PUBLISH, etc.).</param>
         /// <param name="topic">Tópico relacionado con la operación.</param>
@@ -67,19 +68,60 @@ namespace MQClient
                     InitializeConnection();
                 }
 
+                // Formatear el mensaje completo
                 string fullMessage = $"{command}|{_appId}|{topic}|{message}";
-                byte[] data = Encoding.UTF8.GetBytes(fullMessage);
-                await _stream.WriteAsync(data, 0, data.Length);
+                byte[] messageBytes = Encoding.UTF8.GetBytes(fullMessage);
 
-                byte[] buffer = new byte[1024];
-                int bytesRead = await _stream.ReadAsync(buffer, 0, buffer.Length);
-                return Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                // Crear la cabecera con la longitud del mensaje
+                byte[] lengthBytes = BitConverter.GetBytes(messageBytes.Length);
+
+                // Enviar cabecera y mensaje
+                await _stream.WriteAsync(lengthBytes, 0, lengthBytes.Length);
+                await _stream.WriteAsync(messageBytes, 0, messageBytes.Length);
+
+                // Leer la respuesta del servidor utilizando el mismo protocolo
+
+                // 1. Leer la cabecera de 4 bytes de la respuesta
+                byte[] responseLengthBuffer = new byte[4];
+                int bytesRead = await ReadExactAsync(_stream, responseLengthBuffer, 4);
+                if (bytesRead == 0)
+                    return string.Empty;
+
+                int responseLength = BitConverter.ToInt32(responseLengthBuffer, 0);
+
+                // 2. Leer el mensaje completo de respuesta
+                byte[] responseBuffer = new byte[responseLength];
+                bytesRead = await ReadExactAsync(_stream, responseBuffer, responseLength);
+                return Encoding.UTF8.GetString(responseBuffer, 0, bytesRead);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"🔴 Error en SendMessageAsync: {ex.Message}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Lee exactamente "size" bytes del stream y los almacena en buffer.
+        /// </summary>
+        /// <param name="stream">NetworkStream del cual leer.</param>
+        /// <param name="buffer">Buffer donde almacenar los datos leídos.</param>
+        /// <param name="size">Cantidad de bytes a leer.</param>
+        /// <returns>Número total de bytes leídos.</returns>
+        private async Task<int> ReadExactAsync(NetworkStream stream, byte[] buffer, int size)
+        {
+            int totalBytesRead = 0;
+            while (totalBytesRead < size)
+            {
+                int bytesRead = await stream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead);
+                if (bytesRead == 0)
+                {
+                    // La conexión se cerró.
+                    break;
+                }
+                totalBytesRead += bytesRead;
+            }
+            return totalBytesRead;
         }
 
         /// <summary>
@@ -124,7 +166,8 @@ namespace MQClient
         public async Task<Message> Receive(Topic topic)
         {
             string response = await SendMessageAsync("RECEIVE", topic);
-            if (response == "EMPTY") return null;
+            if (response == "EMPTY")
+                return null;
             return new Message(response);
         }
 

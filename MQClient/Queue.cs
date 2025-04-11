@@ -90,22 +90,5 @@ namespace MQClient
         {
             return count == 0;
         }
-
-        /// <summary>
-        /// Obtiene la cantidad actual de elementos en la cola.
-        /// </summary>
-        /// <returns>Número de elementos en la cola.</returns>
-        public int Count()
-        {
-            return count;
-        }
-
-        /// <summary>
-        /// Propiedad de solo lectura para acceder al primer nodo de la cola.
-        /// </summary>
-        public Nodo Inicio
-        {
-            get { return _inicio; }
-        }
     }
 }

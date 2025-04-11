@@ -82,15 +82,5 @@ namespace MQClient
         {
             return _items.Exists(kvp => kvp.Key.Equals(key));
         }
-
-        /// <summary>
-        /// Obtiene una colección enumerable de todas las claves.
-        /// </summary>
-        public IEnumerable<TKey> Keys => _items.ConvertAll(kvp => kvp.Key);
-
-        /// <summary>
-        /// Obtiene una colección enumerable de todos los valores.
-        /// </summary>
-        public IEnumerable<TValue> Values => _items.ConvertAll(kvp => kvp.Value);
     }
 }
